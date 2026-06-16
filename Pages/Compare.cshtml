@@ -1,12 +1,12 @@
 @page
-@model IndexModel
+@model CompareModel
 @{
-    ViewData["Title"] = "Kube 365系统审批配置数据校验";
+    ViewData["Title"] = "审批人一致性比对";
 }
 
 <div class="page-header">
-    <h2>审批配置数据冲突值检测</h2>
-    <p class="text-muted">上传 UTF-8 编码的 CSV 文件，系统将自动识别条件列与审批人列，并按条件组进行规则校验。</p>
+    <h2>审批人一致性比对</h2>
+    <p class="text-muted">自选审批条件列，按条件分组后校验审批人是否一致。</p>
 </div>
 
 @if (!ViewData.ModelState.IsValid)
@@ -23,7 +23,7 @@
     <div class="col-md-8">
         <div class="panel panel-primary">
             <div class="panel-heading">
-                <strong><span class="glyphicon glyphicon-cloud-upload"></span> 上传 CSV 文件进行校验</strong>
+                <strong><span class="glyphicon glyphicon-cloud-upload"></span> 上传 CSV 文件进行比对</strong>
             </div>
             <div class="panel-body">
                 <form method="post" enctype="multipart/form-data">
@@ -41,7 +41,7 @@
                                onchange="document.getElementById('fileName').value = this.files[0] ? this.files[0].name : ''" />
                     </div>
                     <button type="submit" class="btn btn-primary" style="margin-top:10px;">
-                        <span class="glyphicon glyphicon-ok"></span> 上传并校验
+                        <span class="glyphicon glyphicon-ok"></span> 上传并配置
                     </button>
                 </form>
             </div>
@@ -59,11 +59,11 @@
                 </a>
                 @if (Model.HasResult && Model.ValidationResult != null)
                 {
-                    <a href="@Url.Page("/Index", "Download")" class="btn btn-success btn-block" style="margin-bottom:8px;">
+                    <a href="@Url.Page("/Compare", "Download")" class="btn btn-success btn-block" style="margin-bottom:8px;">
                         <span class="glyphicon glyphicon-save"></span> 下载校验结果 CSV
                     </a>
                 }
-                <form method="post" action="@Url.Page("/Index", "Clear")">
+                <form method="post" action="@Url.Page("/Compare", "Clear")">
                     @Html.AntiForgeryToken()
                     <button type="submit" class="btn btn-default btn-block">
                         <span class="glyphicon glyphicon-refresh"></span> 清空当前校验结果
@@ -78,48 +78,77 @@
 {
     <div class="panel panel-warning">
         <div class="panel-heading">
-            <strong><span class="glyphicon glyphicon-check"></span> 确认审批人起始列 — @Model.UploadedFileName</strong>
+            <strong><span class="glyphicon glyphicon-check"></span> 配置条件列与审批人列 — @Model.UploadedFileName</strong>
         </div>
         <div class="panel-body">
-            <form method="post" action="@Url.Page("/Index", "Validate")" class="form-inline">
+            <form method="post" action="@Url.Page("/Compare", "Validate")">
                 @Html.AntiForgeryToken()
-                <div class="form-group">
-                    <label for="firstRoleCol" class="control-label">第一个审批人列：</label>
-                    <select id="firstRoleCol" name="firstRoleCol" class="form-control" onchange="updatePreview()">
-                        <option value="-1">— 无审批人列（仅查看数据） —</option>
-                        @for (int i = 0; i < Model.Headers.Length; i++)
-                        {
-                            var isFirstRole = Model.AutoDetectedRoleCols.Count > 0 && i == Model.AutoDetectedRoleCols.Min();
-                            <option value="@i" selected="@(isFirstRole ? "selected" : null)">@Model.Headers[i]</option>
-                        }
-                    </select>
+                <div class="row">
+                    <div class="col-md-8">
+                        <p class="text-muted" style="margin-bottom:8px;">
+                            <strong>步骤1：</strong>勾选作为<strong style="color:#337ab7;">审批条件</strong>的列（条件值相同的行归入同一组进行比对）
+                        </p>
+                        <div class="row">
+                            @for (int i = 0; i < Model.Headers.Length; i++)
+                            {
+                                <div class="col-sm-4 col-md-3">
+                                    <div class="checkbox" style="margin:3px 0;">
+                                        <label>
+                                            <input type="checkbox" name="conditionCols" value="@i" checked
+                                                   onchange="updateComparePreview()" class="cond-cb" />
+                                            @Model.Headers[i]
+                                        </label>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    <div class="col-md-4" style="border-left:2px dashed #ddd;">
+                        <p class="text-muted" style="margin-bottom:8px;">
+                            <strong>步骤2：</strong>选择<strong style="color:#d9534f;">第一个审批人列</strong>（该列及右侧全部为审批人列）
+                        </p>
+                        <div class="form-group">
+                            <select id="firstRoleCol" name="firstRoleCol" class="form-control" onchange="updateComparePreview()">
+                                <option value="-1">— 无审批人列 —</option>
+                                @for (int i = 0; i < Model.Headers.Length; i++)
+                                {
+                                    var isFirstRole = Model.AutoDetectedRoleCols.Count > 0 && i == Model.AutoDetectedRoleCols.Min();
+                                    <option value="@i" selected="@(isFirstRole ? "selected" : null)">@Model.Headers[i]</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="help-block" id="comparePreview" style="font-size:12px;">
+                            <span class="text-muted">—</span>
+                        </div>
+                    </div>
                 </div>
-                <button type="submit" class="btn btn-primary btn-lg" style="margin-left:10px;">
-                    <span class="glyphicon glyphicon-play"></span> 开始校验
+                <hr />
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <span class="glyphicon glyphicon-play"></span> 开始比对
                 </button>
-                <div class="help-block" style="margin-top:8px;" id="colPreview">
-                    <span class="text-muted">—</span>
-                </div>
             </form>
         </div>
     </div>
 
     <script>
-        var headers = [@Html.Raw(string.Join(",", Model.Headers.Select(h => "\"" + h.Replace("\"", "\\\"") + "\"")))];
-        function updatePreview() {
-            var idx = parseInt(document.getElementById('firstRoleCol').value);
-            var preview = document.getElementById('colPreview');
-            if (idx < 0) {
-                preview.innerHTML = '<span class="text-muted">未选择审批人列</span>';
-            } else {
-                var condCols = headers.slice(0, idx);
-                var roleCols = headers.slice(idx);
-                preview.innerHTML =
-                    '<span style="color:#999;">条件列（' + condCols.length + '）：</span><code>' + (condCols.length > 0 ? condCols.join(', ') : '(无)') + '</code>' +
-                    ' &nbsp;→&nbsp; <span style="color:#d9534f;">审批人列（' + roleCols.length + '）：</span><code>' + roleCols.join(', ') + '</code>';
+        var allHeaders = [@Html.Raw(string.Join(",", Model.Headers.Select(h => "\"" + h.Replace("\"", "\\\"") + "\"")))];
+        function updateComparePreview() {
+            var firstRole = parseInt(document.getElementById('firstRoleCol').value);
+            var condIndices = [];
+            document.querySelectorAll('.cond-cb:checked').forEach(function(cb) {
+                condIndices.push(parseInt(cb.value));
+            });
+            var condNames = condIndices.map(function(i) { return allHeaders[i]; });
+            var roleNames = [];
+            if (firstRole >= 0) {
+                for (var i = firstRole; i < allHeaders.length; i++) roleNames.push(allHeaders[i]);
             }
+            var preview = document.getElementById('comparePreview');
+            preview.innerHTML =
+                '<span style="color:#337ab7;">条件列（' + condNames.length + '）：</span><code>' + (condNames.length > 0 ? condNames.join(', ') : '(无)') + '</code>' +
+                '<br><span style="color:#d9534f;">审批人列（' + roleNames.length + '）：</span><code>' + (roleNames.length > 0 ? roleNames.join(', ') : '(无)') + '</code>';
         }
-        updatePreview();
+        updateComparePreview();
     </script>
 }
 else if (Model.HasResult && Model.ValidationResult != null)
@@ -131,7 +160,7 @@ else if (Model.HasResult && Model.ValidationResult != null)
     <div class="row" style="margin-bottom:15px;">
         <div class="col-md-12">
             <div class="alert @(anomalyCount > 0 ? "alert-warning" : "alert-success")">
-                <strong>校验完成：</strong>共 @vr.Rows.Count 行数据，
+                <strong>比对完成：</strong>共 @vr.Rows.Count 行数据，
                 <span style="color:@(anomalyCount > 0 ? "#a94442" : "#3c763d");">@anomalyCount 行异常</span>，
                 <span>@normalCount 行正常</span>
             </div>
@@ -141,19 +170,19 @@ else if (Model.HasResult && Model.ValidationResult != null)
     @if (anomalyCount == 0)
     {
         <div class="alert alert-success text-center">
-            <strong>全部通过，未发现异常数据</strong>
+            <strong>全部一致，未发现审批人差异</strong>
         </div>
     }
     else
     {
         <div class="panel panel-danger">
             <div class="panel-heading">
-                <strong>异常条件组：共 @Model.AnomalyGroups.Count 组</strong>
+                <strong>不一致条件组：共 @Model.AnomalyGroups.Count 组</strong>
             </div>
             <div class="panel-body" style="padding:0;">
                 @foreach (var group in Model.AnomalyGroups)
                 {
-                    var collapseId = "g_" + group.ConditionDisplay.GetHashCode().ToString("x");
+                    var collapseId = "cg_" + group.ConditionDisplay.GetHashCode().ToString("x");
                     <div class="panel panel-default" style="margin:10px;">
                         <div class="panel-heading" role="tab">
                             <div class="row">
@@ -215,10 +244,10 @@ else if (!Model.HasResult && !Model.ShowColumnConfig)
     <div class="well">
         <h4>使用说明</h4>
         <ol>
-            <li>准备 UTF-8 编码的 CSV 文件，表头需包含「条件列」和「role / role1 / role2 ... role20」审批人列</li>
-            <li>系统自动识别：第一个 role 系列列左侧的所有列为条件列</li>
-            <li>校验规则：同一条件组内检查审批人数一致性、人员一致性、配置重复</li>
-            <li>异常行将以<span class="text-danger">红色高亮</span>显示，并可下载带「存在异常值」标识列的 CSV 文件</li>
+            <li>上传 CSV 文件后，勾选作为<strong>审批条件</strong>的列（如 SealUsageProject）</li>
+            <li>选择<strong>第一个审批人列</strong>（如 Role1），该列及右侧全部为审批人列</li>
+            <li>系统将按条件分组，比对组内审批人是否一致</li>
+            <li>不一致的条件组将以<span class="text-danger">红色高亮</span>显示</li>
         </ol>
     </div>
 }

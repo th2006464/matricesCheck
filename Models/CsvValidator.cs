@@ -76,7 +76,7 @@ public static class CsvValidator
     }
 
     /// <summary>
-    /// 主校验入口（用户指定审批人列）
+    /// 主校验入口（用户指定审批人列，条件列自动推导）
     /// </summary>
     public static ValidationResult Validate(List<string[]> allRows, List<int> roleCols)
     {
@@ -86,12 +86,30 @@ public static class CsvValidator
         var headers = allRows[0];
         var dataRows = allRows.Skip(1).ToList();
 
-        // 条件列 = 第一个审批人列左侧所有列，排除 id 和全唯一列
         int firstRole = roleCols.Count > 0 ? roleCols.Min() : headers.Length;
         var rawConditionCols = new List<int>();
         for (int i = 0; i < firstRole; i++)
             rawConditionCols.Add(i);
         var conditionCols = ExcludeIdAndUniqueColumns(rawConditionCols, headers, dataRows);
+
+        return ValidateCore(allRows, conditionCols, roleCols);
+    }
+
+    /// <summary>
+    /// 主校验入口（用户指定条件列和审批人列）
+    /// </summary>
+    public static ValidationResult Validate(List<string[]> allRows, List<int> conditionCols, List<int> roleCols)
+    {
+        return ValidateCore(allRows, conditionCols, roleCols);
+    }
+
+    private static ValidationResult ValidateCore(List<string[]> allRows, List<int> conditionCols, List<int> roleCols)
+    {
+        if (allRows.Count < 2)
+            return new ValidationResult();
+
+        var headers = allRows[0];
+        var dataRows = allRows.Skip(1).ToList();
 
         var result = new ValidationResult
         {

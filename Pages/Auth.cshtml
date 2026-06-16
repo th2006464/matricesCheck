@@ -1,0 +1,70 @@
+@page
+@model AuthModel
+@{ Layout = null; }
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kube 365系统审批配置数据校验 — 登录</title>
+    <link rel="stylesheet" href="https://apps.bdimg.com/libs/bootstrap/3.3.4/css/bootstrap.min.css" />
+    <style>
+        body { background: #f5f5f5; }
+        .auth-panel { max-width: 420px; margin: 100px auto 0; }
+        .auth-panel .panel-heading { text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="auth-panel">
+        <div class="panel panel-primary">
+            <div class="panel-heading">
+                <h4 style="margin:0;">Kube 365系统审批配置数据校验</h4>
+            </div>
+            <div class="panel-body">
+                <p class="text-muted" style="margin-bottom:20px;">
+                    <span class="glyphicon glyphicon-lock"></span> 请输入一次性授权码访问系统
+                </p>
+
+                @if (!string.IsNullOrEmpty(Model.Message))
+                {
+                    <div class="alert alert-@Model.MessageType" style="padding:10px;">
+                        @Model.Message
+                    </div>
+                }
+
+                <form method="post" asp-page-handler="Login">
+                    @Html.AntiForgeryToken()
+                    <div class="form-group">
+                        <label for="code" class="control-label">授权码</label>
+                        <input type="text" id="code" name="code" class="form-control input-lg text-center"
+                               placeholder="请输入 6 位数字" maxlength="6" autocomplete="off" autofocus
+                               style="font-size:24px;letter-spacing:8px;" />
+                    </div>
+                    <div class="row" style="margin-top:15px;">
+                        <div class="col-xs-7">
+                            <button type="submit" class="btn btn-primary btn-block">
+                                <span class="glyphicon glyphicon-log-in"></span> 登录
+                            </button>
+                        </div>
+                        <div class="col-xs-5">
+                            <button type="submit" formaction="@Url.Page("/Auth", "Request")" class="btn btn-default btn-block">
+                                <span class="glyphicon glyphicon-envelope"></span> 申请
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+    <script src="https://apps.bdimg.com/libs/bootstrap/3.3.4/js/bootstrap.min.js"></script>
+    <script>
+        // 限制输入为数字
+        document.getElementById('code').addEventListener('input', function(e) {
+            this.value = this.value.replace(/[^0-9]/g, '').substring(0, 6);
+        });
+    </script>
+</body>
+</html>
